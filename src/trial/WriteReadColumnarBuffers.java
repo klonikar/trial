@@ -29,10 +29,14 @@ public class WriteReadColumnarBuffers {
 	    f.close();
 	}
 
-	public static void readFile(String fileName) throws IOException {
+	public static void readFile(String fileName, boolean isNativeByteOrder) throws IOException {
 		RandomAccessFile f = new RandomAccessFile(fileName, "rw");
 		MappedByteBuffer in = f.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length()).load();
 		int numCols = in.getInt(), numRows = in.getInt();
+		if(isNativeByteOrder) {
+			numCols = Integer.reverseBytes(numCols);
+			numRows = Integer.reverseBytes(numRows);
+		}
 		System.out.println("has array: " + in.hasArray() + ", numCols: " + numCols + ", numRows: " + numRows);
 		DoubleBuffer[] columns = new DoubleBuffer[numCols];
 		int dataPosition = in.position();
@@ -47,7 +51,10 @@ public class WriteReadColumnarBuffers {
 	    	columns[i].get(colData);
 	    	// print colData
 	    	for(int j = 0;j < numRows;j++) {
-	    		System.out.print(colData[j] + ",");
+	    		if(isNativeByteOrder)
+	    			System.out.print(Double.longBitsToDouble(Long.reverseBytes(Double.doubleToLongBits(colData[j]))) + ",");
+	    		else
+	    			System.out.print(colData[j] + ",");
 	    	}
 	    	System.out.println();
 	    }
@@ -55,20 +62,25 @@ public class WriteReadColumnarBuffers {
 		f.close();
 	}
 	
+	// run with parameters columnarData_c.dat -native to test the native C program generated data
 	public static void main(String[] args) throws Exception {
 		String fileName = "columnarData.dat";
 		int numCols = 3, numRows = 500;
+		boolean isNativeMode = false;
 
 		if(args.length > 0)
 			fileName = args[0];
 
-		if(args.length > 1)
+		if(args.length > 1 && args[1].equalsIgnoreCase("-native"))
+			isNativeMode = true;
+		else if(args.length > 1)
 			numCols = Integer.parseInt(args[1]);
 
 		if(args.length > 2)
 			numRows = Integer.parseInt(args[2]);
 
-		writeFile(fileName, numCols, numRows);
-		readFile(fileName);
+		if(!isNativeMode)
+			writeFile(fileName, numCols, numRows);
+		readFile(fileName, isNativeMode);
 	}
 }
