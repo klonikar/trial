@@ -38,9 +38,9 @@ writeCounters(const char *fileName, int counters) {
         if (write (fd, "", 1) != 1)
             handle_error ("write error");
     }
-    char *addr = (char *) mmap64(NULL, length, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+    char *addr = (char *) mmap(NULL, length, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
-        handle_error("mmap64 write");
+        handle_error("mmap write");
     ProfilingHeaderAndData *countersP = (ProfilingHeaderAndData *) addr;
     ProfilingData *data = (ProfilingData *) countersP->data;
     // Set data
@@ -61,9 +61,9 @@ readCounters(const char *fileName, int maxCounters) {
     struct stat sb;
     if (fstat(fd, &sb) == -1)           /* To obtain file size */
         handle_error("fstat read");
-    char *addr = (char *) mmap64(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    char *addr = (char *) mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
-        handle_error("mmap64 read");
+        handle_error("mmap read");
     ProfilingHeaderAndData *countersP = (ProfilingHeaderAndData *) addr;
     ProfilingData *data = (ProfilingData *) countersP->data;
     maxCounters = maxCounters < countersP->counters ? maxCounters : countersP->counters;
@@ -102,9 +102,9 @@ writeColumnarData(const char *fileName, int numCols, int numRows) {
         if (write (fd, "", 1) != 1)
             handle_error ("write error");
     }
-    char *addr = (char *) mmap64(NULL, length, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+    char *addr = (char *) mmap(NULL, length, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
-        handle_error("mmap64 write");
+        handle_error("mmap write");
     ColumnarData *dataMetadataP = (ColumnarData *) addr;
     double *dataP = (double *) dataMetadataP->data;
     // Set data
@@ -132,9 +132,9 @@ modifyColumnarData(const char *fileName) {
     if (fstat(fd, &sb) == -1)           /* To obtain file size */
         handle_error("fstat read");
 
-    char *addr = (char *) mmap64(NULL, sb.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    char *addr = (char *) mmap(NULL, sb.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
-        handle_error("mmap64 modify");
+        handle_error("mmap modify");
 
     //int ret = madvise(addr, sb.st_size, MADV_SEQUENTIAL);
     //if(ret != 0)
@@ -213,9 +213,9 @@ readColumnarData(const char *fileName, int maxNumRows) {
     struct stat sb;
     if (fstat(fd, &sb) == -1)           /* To obtain file size */
         handle_error("fstat read");
-    char *addr = (char *) mmap64(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    char *addr = (char *) mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
-        handle_error("mmap64 read");
+        handle_error("mmap read");
     ColumnarData *dataMetadataP = (ColumnarData *) addr;
     double *dataP = (double *) dataMetadataP->data;
 	int numCols = dataMetadataP->metaData.numCols, numRows = dataMetadataP->metaData.numRows;
@@ -241,7 +241,7 @@ main(int argc, char *argv[])
         readCounters("counters.dat", 20);
     }
     if(argc > 1 && strcmp(argv[1], "-createColumnar") == 0) {
-        writeColumnarData("columnarData.dat", 4, 67108864);
+        writeColumnarData("columnarData.dat", 4, 16777216); // 67108864 on linux to get a 2GB file
     }
     if(argc > 1 && strcmp(argv[1], "-regularIO") == 0) {
         modifyColumnarData_io("columnarData.dat");
