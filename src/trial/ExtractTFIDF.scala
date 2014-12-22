@@ -9,11 +9,11 @@
  * set SPARK_MEM=2048M // deprecated but still works
  * java -cp .;<spark_path>/assembly/target/scala-2.10/spark-assembly-*.jar 
   -Dspark.executor.memory=1536m -Xmx2048M -Xms2048M -Dspark.master=local[4]
-  com.informatica.prototype.cto.mlp.preprocessing.ExtractTFIDF
-  --inputFile C:/p4/kl_mlp/new_mlp/gcs/training_terms_emails.txt
+  trial.ExtractTFIDF
+  --inputFile training_terms_emails.txt
  */
 
-package com.informatica.prototype.cto.mlp.preprocessing
+package trial
 
 import org.apache.spark._
 import org.apache.spark.SparkContext._
@@ -22,12 +22,12 @@ import org.apache.spark.storage.StorageLevel
 object ExtractTFIDF {
   def main(args: Array[String]) {
     // Function parameters
-    var inputFile = "C:/p4/kl_mlp/new_mlp/gcs/training_terms_emails.txt"
+    var inputFile = "training_terms_emails.txt"
     var minDocCount = 10
     var maxDocCount = 500
 	var maxTerms = 10000
     var minInfoGainThreshold = 0.0005 // min improvement in entropy
-    var outputFile = "C:/p4/kl_mlp/new_mlp/gcs/training_terms_case_title.out"
+    var outputFile = "training_terms_emails.out"
 	
     (0 to (args.length-2)).map { i =>
         var argVal = args(i + 1)
