@@ -1,25 +1,19 @@
 // win_file_map_sample.cpp : windows file mapping api sample
-//
+// cl /nologo /EHsc win_file_map_sample.cpp
 
-//#include "stdafx.h"
 #include <iostream>
-
 #include <windows.h>
 #include <stdio.h>
 #include <conio.h>
-#include <tchar.h>
 
 using namespace std;
-
-
 #define BUFFSIZE 1024 // size of the memory to examine at any one time
-
 #define FILE_MAP_START 138240 // starting point within the file of
                               // the data to examine (135K)
 
 TCHAR * lpcTheFile = TEXT("fmtest.txt");
 
-int _tmain(int argc, _TCHAR* argv[])
+int main(int argc, char* argv[])
 {
 
       HANDLE hMapFile;      // handle for the file's memory-mapped region
@@ -51,15 +45,15 @@ int _tmain(int argc, _TCHAR* argv[])
 
     if (hFile == INVALID_HANDLE_VALUE)
     {
-      _tprintf(TEXT("hFile is NULL\n"));
-      _tprintf(TEXT("Target file is %s\n"),
+      printf(("hFile is NULL\n"));
+      printf(("Target file is %s\n"),
              lpcTheFile);
       return 4;
     }
 
       GetSystemInfo(&SysInfo);
     dwSysGran = SysInfo.dwAllocationGranularity;
-      _tprintf(TEXT("System Allocation Granularity is %d\n"), dwSysGran);
+      printf(("System Allocation Granularity is %d\n"), dwSysGran);
 
       // Now calculate a few variables. Calculate the file offsets as
   // 64-bit values, and then get the low-order 32 bits for the
@@ -69,23 +63,23 @@ int _tmain(int argc, _TCHAR* argv[])
   // offset of the data into the file to the nearest multiple of the
   // system allocation granularity.
   dwFileMapStart = (FILE_MAP_START / dwSysGran) * dwSysGran;
-  _tprintf (TEXT("The file map view starts at %ld bytes into the file.\n"),
+  printf (("The file map view starts at %ld bytes into the file.\n"),
           dwFileMapStart);
 
   // Calculate the size of the file mapping vi ew.
   dwMapViewSize = (FILE_MAP_START % dwSysGran) + BUFFSIZE;
-  _tprintf (TEXT("The file map view is %ld bytes large.\n"),
+  printf (("The file map view is %ld bytes large.\n"),
             dwMapViewSize);
 
   // How large will the file mapping object be?
   dwFileMapSize = FILE_MAP_START + BUFFSIZE;
-  _tprintf (TEXT("The file mapping object is %ld bytes large.\n"),
+  printf (("The file mapping object is %ld bytes large.\n"),
           dwFileMapSize);
 
   // The data of interest isn't at the beginning of the
   // view, so determine how far into the view to set the pointer.
   iViewDelta = FILE_MAP_START - dwFileMapStart;
-  _tprintf (TEXT("The data is %d bytes into the view.\n"),
+  printf (("The data is %d bytes into the view.\n"),
             iViewDelta);
 
 
@@ -96,7 +90,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 
       dwFileSize = GetFileSize(hFile,  NULL);
-  _tprintf(TEXT("hFile size: %10d\n"), dwFileSize);
+  printf(("hFile size: %10d\n"), dwFileSize);
 
 
       hMapFile = CreateFileMapping( hFile,          // current file handle
@@ -108,7 +102,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
   if (hMapFile == NULL)
   {
-    _tprintf(TEXT("hMapFile is NULL: last error: %d\n"), GetLastError() );
+    printf(("hMapFile is NULL: last error: %d\n"), GetLastError() );
     return (2);
   }
 
@@ -128,7 +122,7 @@ int _tmain(int argc, _TCHAR* argv[])
                                                     // to map
   if (lpMapAddress == NULL)
   {
-    _tprintf(TEXT("lpMapAddress is NULL: last error: %d\n"), GetLastError());
+    printf(("lpMapAddress is NULL: last error: %d\n"), GetLastError());
     return 3;
   }
 
@@ -140,10 +134,10 @@ int _tmain(int argc, _TCHAR* argv[])
   // Extract the data, an int. Cast the pointer pData from a "pointer
   // to char" to a "pointer to int" to get the whole thing
   iData = *(int *)pData;
-  _tprintf(TEXT("The actual data is %d\n"), *(int *)pData);
-  _tprintf (TEXT("The value at the pointer is %d,\nwhich %s one quarter of the desired file offset.\n"),
+  printf(("The actual data is %d\n"), *(int *)pData);
+  printf (("The value at the pointer is %d,\nwhich %s one quarter of the desired file offset.\n"),
             iData,
-            iData*4 == FILE_MAP_START ? TEXT("is") : TEXT("is not"));
+            iData*4 == FILE_MAP_START ? ("is") : ("is not"));
 
   // Close the file mapping object and the open file
 
@@ -152,7 +146,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
   if(!bFlag)
   {
-    _tprintf(TEXT("\nError %ld occurred closing the mapping object!"),
+    printf(("\nError %ld occurred closing the mapping object!"),
              GetLastError());
   }
 
@@ -160,7 +154,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
   if(!bFlag)
   {
-    _tprintf(TEXT("\nError %ld occurred closing the file!"),
+    printf(("\nError %ld occurred closing the file!"),
            GetLastError());
   }
 
