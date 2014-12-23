@@ -6,11 +6,11 @@
    <spark_path>/assembly/target/scala-2.10/spark-assembly-*.jar
    ExtractTFIDF.scala
  * Execute using:
- * set SPARK_MEM=2048M // deprecated but still works
- * java -cp .;<spark_path>/assembly/target/scala-2.10/spark-assembly-*.jar 
-  -Dspark.executor.memory=1536m -Xmx2048M -Xms2048M -Dspark.master=local[4]
-  trial.ExtractTFIDF
-  --inputFile training_terms_emails.txt
+ * set SPARK_MEM=11g // needed only for spark-shell. deprecated but still works
+ * java -cp .;<spark-path>/assembly/target/scala-2.10/spark-assembly-*.jar
+ -Dspark.executor.memory=11g -Xmx12g -Xms12g -Dspark.master=local[8]
+ trial.ExtractTFIDF --maxTerms 50000 --inputFile training_terms_emails.txt
+ --outputFile training_terms_emails.out
  */
 
 package trial
@@ -18,6 +18,7 @@ package trial
 import org.apache.spark._
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
+import java.io._
 
 object ExtractTFIDF {
   def main(args: Array[String]) {
@@ -28,6 +29,7 @@ object ExtractTFIDF {
 	var maxTerms = 10000
     var minInfoGainThreshold = 0.0005 // min improvement in entropy
     var outputFile = "training_terms_emails.out"
+	var outputAsHDFS = false
 	
     (0 to (args.length-2)).map { i =>
         var argVal = args(i + 1)
@@ -39,15 +41,27 @@ object ExtractTFIDF {
 			case "--maxTerms" => maxTerms = argVal.toInt
             case "--minInfoGainThreshold" => minInfoGainThreshold = argVal.toDouble
             case "--outputFile" => outputFile = argVal
+			case "--outputAsHDFS" => outputAsHDFS = true
             case _ => ;
         }
     }
 
-	execute(inputFile, minDocCount, maxDocCount, maxTerms, minInfoGainThreshold, outputFile)
+	val output = execute(inputFile, minDocCount, maxDocCount, maxTerms, minInfoGainThreshold,
+                         outputFile, outputAsHDFS)
+    if(!outputAsHDFS) {
+        val writer = new PrintWriter(new File(outputFile))
+        output.foreach {  tfidfs =>
+            val tfidfStr = tfidfs.map { case (term, (termCount, tfIDF, tfLogIDF, infoGain)) =>
+                term + ":" + termCount + ":" + tfIDF + ":" + tfLogIDF + ":" + infoGain
+            }
+            writer.write(tfidfStr.deep.mkString(",") + "\n")
+        }
+		writer.close
+    }
   }
   
   def execute(inputFile: String, minDocCount: Int, maxDocCount: Int, maxTermsArg: Int,
-              minInfoGainThreshold: Double, outputFile: String) = {
+              minInfoGainThreshold: Double, outputFile: String, outputAsHDFS: Boolean) = {
 
     val sparkConf = new SparkConf().setAppName("ExtractTFIDF")
     val sc = new SparkContext(sparkConf)
@@ -139,16 +153,20 @@ val termFrequencies = validTermsLabels.map { fields =>
                 docCountIGForTerm._2))
     }
 }
-
-val termFrequenciesOutput = termFrequencies.map { tfidfs =>
-    val output = tfidfs.map { tfidf => // term:termCount:tfIDF:tfLogIDF:infoGain
-      tfidf._1 + ":" + tfidf._2._1 + ":" + tfidf._2._2 + ":" + tfidf._2._3 + ":" + tfidf._2._4
+if(outputAsHDFS) {
+    val termFrequenciesOutput = termFrequencies.map { tfidfs =>
+        val tfidfStr = tfidfs.map { case (term, (termCount, tfIDF, tfLogIDF, infoGain)) => 
+          term + ":" + termCount + ":" + tfIDF + ":" + tfLogIDF + ":" + infoGain
+        }
+        tfidfStr.deep.mkString(",")
     }
-    output.deep.mkString(",")
+    termFrequenciesOutput.saveAsTextFile(outputFile)
 }
-termFrequenciesOutput.saveAsTextFile(outputFile)
+val ret = termFrequencies.collect
+
 val endTime = System.currentTimeMillis
 println("time to execute: " + (endTime - startTime) + "ms");
 sc.stop
+ret
 }
 }
