@@ -62,10 +62,19 @@ object ExtractTFIDF {
   
   def execute(inputFile: String, minDocCount: Int, maxDocCount: Int, maxTermsArg: Int,
               minInfoGainThreshold: Double, outputFile: String, outputAsHDFS: Boolean) = {
-
     val sparkConf = new SparkConf().setAppName("ExtractTFIDF")
     val sc = new SparkContext(sparkConf)
     println("spark context created")
+
+    val ret = executeWithSC(sc, inputFile, minDocCount, maxDocCount, maxTermsArg, minInfoGainThreshold,
+                      outputFile, outputAsHDFS)
+    sc.stop
+	ret
+  }
+  
+  def executeWithSC(sc: SparkContext, inputFile: String, minDocCount: Int, maxDocCount: Int, maxTermsArg: Int,
+              minInfoGainThreshold: Double, outputFile: String, outputAsHDFS: Boolean) = {
+
     val startTime = System.currentTimeMillis
 
 val validLabels = List("Y", "N")
@@ -168,7 +177,6 @@ val ret = termFrequencies.collect
 
 val endTime = System.currentTimeMillis
 println("time to execute: " + (endTime - startTime) + "ms");
-sc.stop
 ret
 }
 }
