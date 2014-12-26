@@ -51,8 +51,8 @@ object ExtractTFIDF {
     if(!outputAsHDFS) {
         val writer = new PrintWriter(new File(outputFile))
         output.foreach {  tfidfs =>
-            val tfidfStr = tfidfs.map { case (term, (termCount, tfIDF, tfLogIDF, infoGain)) =>
-                term + ":" + termCount + ":" + tfIDF + ":" + tfLogIDF + ":" + infoGain
+            val tfidfStr = tfidfs.map { case (term, termStats) =>
+                term + ":" + termStats(0) + ":" + termStats(1) + ":" + termStats(2) + ":" + termStats(3)
             }
             writer.write(tfidfStr.deep.mkString(",") + "\n")
         }
@@ -76,6 +76,14 @@ val validTermsLabels = sc.textFile(inputFile).map { line =>
 // compute the number of occurences for each label
 val labelCounts = validTermsLabels.map { fields => (fields(0), 1)
 }.reduceByKey(_ + _).collectAsMap
+val labelCounts_broadcast = sc.broadcast(labelCounts)
+
+val totalRows = labelCounts.reduce({ (a,b) => ("sum", a._2 + b._2) })._2
+
+val probsOverAll = labelCounts.map { case(label, count) =>
+    label -> (count.toDouble/totalRows) }
+val originalEntropy = probsOverAll.reduce( {(a,b) =>
+    ("entropy", -a._2*Math.log(a._2) - b._2*Math.log(b._2)) })._2
 
 // Compute the number of occurences for each term in the docs
 // and also the term, label occurences
@@ -90,17 +98,10 @@ val labelTermsDocCounts = validTermsLabels.flatMap { fields =>
         tlc._2._1 > minDocCount && tlc._2._1 < maxDocCount
     }
 
-val totalRows = labelCounts.reduce({ (a,b) => ("sum", a._2 + b._2) })._2
-
-val probsOverAll = labelCounts.map { case(label, count) =>
-    label -> (count.toDouble/totalRows) }
-val originalEntropy = probsOverAll.reduce( {(a,b) =>
-    ("entropy", -a._2*Math.log(a._2) - b._2*Math.log(b._2)) })._2
-
 val infoGainForTerms = labelTermsDocCounts.map { tldc =>
     val numDocsWithTerm = tldc._2._1
     val labelCountsWithTerm = tldc._2._2
-	val labelCountsWithoutTerm = labelCounts.map { case(label, count) =>
+	val labelCountsWithoutTerm = labelCounts_broadcast.value.map { case(label, count) =>
         (label, labelCountsWithTerm.head._1._2) -> 
             (count - labelCountsWithTerm.getOrElse((label, labelCountsWithTerm.head._1._2), 0))
         }
@@ -139,15 +140,16 @@ val infoGainDocCounts = allInfoGainDocCounts.top(maxTerms)(
 val infoGainDocCounts = allInfoGainDocCounts.sortBy({ termInfoGain =>
         termInfoGain._2._2}, false).take(maxTerms).toMap
 */
+val infoGainDocCounts_broadcast = sc.broadcast(infoGainDocCounts)
 
 val termFrequencies = validTermsLabels.map { fields =>
     val terms = fields.slice(1, fields.length)
-    val distinctTerms = terms.distinct.filter( { term => infoGainDocCounts.contains(term) } )
+    val distinctTerms = terms.distinct.filter( { term => infoGainDocCounts_broadcast.value.contains(term) } )
     distinctTerms.map { term =>
 	    val termCountsInDoc = terms.count(tt => tt == term)
-		val docCountIGForTerm = infoGainDocCounts(term) // doc count, infoGain
-        // return a map of term -> (TF, TFIDF, TFLOGIDF)
-        (term, (termCountsInDoc, 
+		val docCountIGForTerm = infoGainDocCounts_broadcast.value(term) // doc count, infoGain
+        // return a term, TF, TFIDF, TFLOGIDF, infoGain
+        (term, Array(termCountsInDoc, 
                 termCountsInDoc.toDouble/docCountIGForTerm._1,
                 termCountsInDoc.toDouble*Math.log(totalRows.toDouble/docCountIGForTerm._1),
                 docCountIGForTerm._2))
@@ -155,8 +157,8 @@ val termFrequencies = validTermsLabels.map { fields =>
 }
 if(outputAsHDFS) {
     val termFrequenciesOutput = termFrequencies.map { tfidfs =>
-        val tfidfStr = tfidfs.map { case (term, (termCount, tfIDF, tfLogIDF, infoGain)) => 
-          term + ":" + termCount + ":" + tfIDF + ":" + tfLogIDF + ":" + infoGain
+        val tfidfStr = tfidfs.map { case (term, termStats) => 
+          term + ":" + termStats(0) + ":" + termStats(1) + ":" + termStats(2) + ":" + termStats(3)
         }
         tfidfStr.deep.mkString(",")
     }

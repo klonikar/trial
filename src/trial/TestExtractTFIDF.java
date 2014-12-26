@@ -9,7 +9,6 @@ package trial;
 
 import java.io.*;
 import scala.Tuple2;
-import scala.Tuple4;
 
 public class TestExtractTFIDF {
     public static void main(String[] args) throws IOException{
@@ -20,16 +19,16 @@ public class TestExtractTFIDF {
         double minInfoGainThreshold = 0.0005; // min improvement in entropy
         String outputFile = "training_terms_emails.out";
 		boolean outputAsHDFS = false;
-        Tuple2<String, Tuple4<Object,Object,Object,Object>>[][] output = 
+        Tuple2<String, double[]>[][] output = 
                    ExtractTFIDF.execute(inputFile, minDocCount, maxDocCount, maxTerms,
                                         minInfoGainThreshold, outputFile, outputAsHDFS);
         if(!outputAsHDFS) {
             PrintWriter writer = new PrintWriter(new File(outputFile));
-            for(Tuple2<String, Tuple4<Object,Object,Object,Object>>[] tfidfs : output) {
+            for(Tuple2<String, double[]>[] tfidfs : output) {
                 String tfidfStr = "";
-				for(Tuple2<String, Tuple4<Object,Object,Object,Object>> tfidf : tfidfs) {
-                    tfidfStr += tfidf._1() + ":" + tfidf._2()._1() + ":" + tfidf._2()._2()
-                                + ":" + tfidf._2()._3() + ":" + tfidf._2()._4() + ",";
+				for(Tuple2<String, double[]> tfidf : tfidfs) {
+                    tfidfStr += tfidf._1() + ":" + tfidf._2()[0] + ":" + tfidf._2()[1]
+                                + ":" + tfidf._2()[2] + ":" + tfidf._2()[3] + ",";
                 }
                 writer.write(tfidfStr + "\n");
             }
