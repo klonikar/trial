@@ -29,6 +29,7 @@ object ExtractTFIDF {
 	var maxTerms = 10000
     var minInfoGainThreshold = 0.0005 // min improvement in entropy
     var outputFile = "training_terms_emails.out"
+	var minPartitions = 48
 	var outputAsHDFS = false
 	
     (0 to (args.length-2)).map { i =>
@@ -42,12 +43,13 @@ object ExtractTFIDF {
             case "--minInfoGainThreshold" => minInfoGainThreshold = argVal.toDouble
             case "--outputFile" => outputFile = argVal
 			case "--outputAsHDFS" => outputAsHDFS = true
+			case "--minPartitions" => minPartitions = argVal.toInt
             case _ => ;
         }
     }
 
 	val output = execute(inputFile, minDocCount, maxDocCount, maxTerms, minInfoGainThreshold,
-                         outputFile, outputAsHDFS)
+                         outputFile, minPartitions, outputAsHDFS)
     if(!outputAsHDFS) {
         val writer = new PrintWriter(new File(outputFile))
         output.foreach {  tfidfs =>
@@ -61,24 +63,24 @@ object ExtractTFIDF {
   }
   
   def execute(inputFile: String, minDocCount: Int, maxDocCount: Int, maxTermsArg: Int,
-              minInfoGainThreshold: Double, outputFile: String, outputAsHDFS: Boolean) = {
+              minInfoGainThreshold: Double, outputFile: String, minPartitions: Int, outputAsHDFS: Boolean) = {
     val sparkConf = new SparkConf().setAppName("ExtractTFIDF")
     val sc = new SparkContext(sparkConf)
     println("spark context created")
 
     val ret = executeWithSC(sc, inputFile, minDocCount, maxDocCount, maxTermsArg, minInfoGainThreshold,
-                      outputFile, outputAsHDFS)
+                      outputFile, minPartitions, outputAsHDFS)
     sc.stop
 	ret
   }
   
   def executeWithSC(sc: SparkContext, inputFile: String, minDocCount: Int, maxDocCount: Int, maxTermsArg: Int,
-              minInfoGainThreshold: Double, outputFile: String, outputAsHDFS: Boolean) = {
+              minInfoGainThreshold: Double, outputFile: String, minPartitions: Int, outputAsHDFS: Boolean) = {
 
     val startTime = System.currentTimeMillis
 
 val validLabels = List("Y", "N")
-val validTermsLabels = sc.textFile(inputFile).map { line =>
+val validTermsLabels = sc.textFile(inputFile, minPartitions).map { line =>
     line.split(",")
     }.filter { fields => validLabels.contains(fields(0)) }.persist(StorageLevel.MEMORY_AND_DISK)
 

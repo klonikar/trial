@@ -18,10 +18,11 @@ public class TestExtractTFIDF {
         int maxTerms = 10000;
         double minInfoGainThreshold = 0.0005; // min improvement in entropy
         String outputFile = "training_terms_emails.out";
+		int minPartitions = 48;
 		boolean outputAsHDFS = false;
         Tuple2<String, double[]>[][] output = 
                    ExtractTFIDF.execute(inputFile, minDocCount, maxDocCount, maxTerms,
-                                        minInfoGainThreshold, outputFile, outputAsHDFS);
+                                        minInfoGainThreshold, outputFile, minPartitions, outputAsHDFS);
         if(!outputAsHDFS) {
             PrintWriter writer = new PrintWriter(new File(outputFile));
             for(Tuple2<String, double[]>[] tfidfs : output) {
