@@ -9,6 +9,8 @@ package trial;
 
 import java.io.*;
 import scala.Tuple2;
+import scala.Tuple3;
+import scala.collection.immutable.Map;
 
 public class TestExtractTFIDF {
     public static void main(String[] args) throws IOException{
@@ -20,16 +22,16 @@ public class TestExtractTFIDF {
         String outputFile = "training_terms_emails.out";
 		int minPartitions = 48;
 		boolean outputAsHDFS = false;
-        Tuple2<String, double[]>[][] output = 
+        Tuple2<Map<String, Tuple3<Object, Object, Object>>, Tuple2<Object, double[]>[][]> output = 
                    ExtractTFIDF.execute(inputFile, minDocCount, maxDocCount, maxTerms,
                                         minInfoGainThreshold, outputFile, minPartitions, outputAsHDFS);
         if(!outputAsHDFS) {
             PrintWriter writer = new PrintWriter(new File(outputFile));
-            for(Tuple2<String, double[]>[] tfidfs : output) {
+            for(Tuple2<Object, double[]>[] tfidfs : output._2()) {
                 String tfidfStr = "";
-				for(Tuple2<String, double[]> tfidf : tfidfs) {
+				for(Tuple2<Object, double[]> tfidf : tfidfs) {
                     tfidfStr += tfidf._1() + ":" + tfidf._2()[0] + ":" + tfidf._2()[1]
-                                + ":" + tfidf._2()[2] + ":" + tfidf._2()[3] + ",";
+                                + ":" + tfidf._2()[2] + ",";
                 }
                 writer.write(tfidfStr + "\n");
             }

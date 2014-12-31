@@ -52,13 +52,18 @@ object ExtractTFIDF {
                          outputFile, minPartitions, outputAsHDFS)
     if(!outputAsHDFS) {
         val writer = new PrintWriter(new File(outputFile))
-        output.foreach {  tfidfs =>
+        output._2.foreach {  tfidfs =>
             val tfidfStr = tfidfs.map { case (term, termStats) =>
-                term + ":" + termStats(0) + ":" + termStats(1) + ":" + termStats(2) + ":" + termStats(3)
+                term + ":" + termStats(0) + ":" + termStats(1) + ":" + termStats(2)
             }
             writer.write(tfidfStr.deep.mkString(",") + "\n")
         }
 		writer.close
+		val dictWriter = new PrintWriter(new File(outputFile + ".csv"))
+		output._1.foreach { case ((term, (dc, ig, i))) =>
+                  dictWriter.write(i + "," + term + "," + dc + "," + ig + "\n")
+                }
+        dictWriter.close
     }
   }
   
@@ -146,7 +151,9 @@ val maxTerms = if(maxTermsArg > 0) maxTermsArg else allInfoGainDocCounts.count.t
 // select top maxTerms terms based on infoGain
 val infoGainDocCounts = allInfoGainDocCounts.top(maxTerms)(
                           Ordering[Double].on(_._2._2) // order on infoGain
-                        ).toMap
+                        ).zipWithIndex.map { case(((term, (dc, ig)), i)) =>
+                             (term, (dc, ig, i))
+                        }.toMap
 /*
 val infoGainDocCounts = allInfoGainDocCounts.sortBy({ termInfoGain =>
         termInfoGain._2._2}, false).take(maxTerms).toMap
@@ -155,15 +162,15 @@ val infoGainDocCounts_broadcast = sc.broadcast(infoGainDocCounts)
 
 val termFrequencies = validTermsLabels.map { fields =>
     val terms = fields.slice(1, fields.length)
-    val distinctTerms = terms.distinct.filter( { term => infoGainDocCounts_broadcast.value.contains(term) } )
+    val distinctTerms = terms.distinct.filter( { term => 
+                           infoGainDocCounts_broadcast.value.contains(term) } )
     distinctTerms.map { term =>
 	    val termCountsInDoc = terms.count(tt => tt == term)
-		val docCountIGForTerm = infoGainDocCounts_broadcast.value(term) // doc count, infoGain
+		val docCountIGForTerm = infoGainDocCounts_broadcast.value(term) // doc count, infoGain, index
         // return a term, TF, TFIDF, TFLOGIDF, infoGain
-        (term, Array(termCountsInDoc, 
+        (docCountIGForTerm._3, Array(termCountsInDoc, 
                 termCountsInDoc.toDouble/docCountIGForTerm._1,
-                termCountsInDoc.toDouble*Math.log(totalRows.toDouble/docCountIGForTerm._1),
-                docCountIGForTerm._2))
+                termCountsInDoc.toDouble*Math.log(totalRows.toDouble/docCountIGForTerm._1)))
     }
 }
 if(outputAsHDFS) {
@@ -179,6 +186,6 @@ val ret = termFrequencies.collect
 
 val endTime = System.currentTimeMillis
 println("time to execute: " + (endTime - startTime) + "ms");
-ret
+(infoGainDocCounts, ret) // return term dictionary, and term frequencies vector for each doc
 }
 }
