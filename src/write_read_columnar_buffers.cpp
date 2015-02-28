@@ -128,6 +128,9 @@ writeColumnarData(const char *fileName, int numCols, int numRows) {
 void
 modifyColumnarData(const char *fileName) {
     printf("Modifying data using mmap\n");
+	struct tms st_cpu, en_cpu;
+	clock_t st_time = times(&st_cpu);
+
     int fd = open(fileName, O_RDWR);
     if (fd == -1)
         handle_error("open read");
@@ -159,11 +162,20 @@ modifyColumnarData(const char *fileName) {
     }
     munmap(addr, sb.st_size);
     close(fd);
+	clock_t en_time = times(&en_cpu);
+	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
+		  (en_time - st_time),
+		  (en_cpu.tms_utime - st_cpu.tms_utime),
+		  (en_cpu.tms_stime - st_cpu.tms_stime));
+
 }
 
 void
 modifyColumnarData_io(const char *fileName) {
     printf("Modifying data using regular i/o\n");
+	struct tms st_cpu, en_cpu;
+	clock_t st_time = times(&st_cpu);
+
     int fd = open(fileName, O_RDWR);
     if (fd == -1)
         handle_error("open read");
@@ -205,6 +217,12 @@ modifyColumnarData_io(const char *fileName) {
     free(col2DataP);
     free(col3DataP);
     close(fd);
+	clock_t en_time = times(&en_cpu);
+	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
+		  (en_time - st_time),
+		  (en_cpu.tms_utime - st_cpu.tms_utime),
+		  (en_cpu.tms_stime - st_cpu.tms_stime));
+
 }
 
 void
@@ -262,12 +280,13 @@ simulateRandomIO(const char *fileName, int *startOffsets, int *bytesToModify, in
 	munmap(addr, sb.st_size);
     close(fd);
 	clock_t en_time = times(&en_cpu);
-	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
-	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
 	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
 		  (en_time - st_time),
 		  (en_cpu.tms_utime - st_cpu.tms_utime),
 		  (en_cpu.tms_stime - st_cpu.tms_stime));
+
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
 }
 
 void
@@ -299,12 +318,13 @@ simulateRandomIO_regularIO(const char *fileName, int *startOffsets, int *bytesTo
 	}
     close(fd);
 	clock_t en_time = times(&en_cpu);
-	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
-	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
 	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
 		  (en_time - st_time),
 		  (en_cpu.tms_utime - st_cpu.tms_utime),
 		  (en_cpu.tms_stime - st_cpu.tms_stime));
+
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
 }
 
 int
