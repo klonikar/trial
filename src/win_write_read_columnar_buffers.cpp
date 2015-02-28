@@ -265,19 +265,8 @@ int writeColumnarData_rowMajor(TCHAR * filename, int numCols, int numRows)
     return 0;
 }
 
-
-
-
-
-
-
-
-
-
 int modifyColumnarData(TCHAR * filename)
 {
-
-
       LARGE_INTEGER frequency;        // ticks per second
       LARGE_INTEGER t1, t2;           // ticks
       static double elapsedTime = 0;
@@ -394,7 +383,6 @@ int modifyColumnarData(TCHAR * filename)
       printf(("File modification complete\n"));
     return 0;
 }
-
 
 int modifyColumnarData_rowMajor(TCHAR * filename)
 {
@@ -636,10 +624,6 @@ int readColumnarData(TCHAR * filename, int maxNumRows)
     return 0;
 }
 
-
-
-
-
 int readColumnarData_rowMajor(TCHAR * filename, int maxNumRows)
 {
       LARGE_INTEGER frequency;        // ticks per second
@@ -761,8 +745,6 @@ int readColumnarData_rowMajor(TCHAR * filename, int maxNumRows)
     return 0;
 }
 
-
-
 int modifyColumnarData_regulario(TCHAR *fileName)
 {
 
@@ -849,9 +831,6 @@ int modifyColumnarData_regulario(TCHAR *fileName)
       printf(("File modification complete\n"));
     return 0;
 }
-
-
-
 
 int modifyColumnarData_regulario_rowMajor(TCHAR *fileName)
 {
@@ -940,21 +919,231 @@ int modifyColumnarData_regulario_rowMajor(TCHAR *fileName)
     return 0;
 }
 
+int
+simulateRandomIO(const char *filename, int *startOffsets, int *bytesToModify, int maxTimes) {
+      LARGE_INTEGER frequency;        // ticks per second
+      LARGE_INTEGER t1, t2;           // ticks
+      static double elapsedTime = 0;
+      static long long int timeCounter = 1;
 
+      QueryPerformanceFrequency(&frequency);
+      QueryPerformanceCounter(&t1);
+
+
+      //printf(("Modifying data using FileMapping on Windows\n"));
+
+      const TCHAR * lpcTheFile = filename;
+
+      HANDLE hFile;        // file handle
+      HANDLE hMapFile;   // handle for the file's memory-mapped region
+      BOOL bFlag;        // a result holder
+      
+      DWORD dwFileMapStart = 0; //start file map view from 0
+      LPVOID lpMapAddress;
+
+
+      hFile = CreateFile(lpcTheFile,
+                     GENERIC_READ | GENERIC_WRITE,
+                     0,
+                     NULL,
+                     OPEN_EXISTING,
+                     FILE_ATTRIBUTE_NORMAL,
+                     NULL);
+      if (hFile == INVALID_HANDLE_VALUE)
+    {
+        printf(("hFile is NULL\n"));
+        printf(("Target file is %s\n"),
+             lpcTheFile);
+        return 4;
+    }
+
+      DWORD dwFileSize = GetFileSize(hFile,  NULL);
+      DWORD dwFileMapSize = dwFileSize;
+      DWORD dwMapViewSize = dwFileSize;
+
+      //printf(("File size is %d\n"), dwFileSize);
+
+      hMapFile = CreateFileMapping( hFile,          // current file handle
+                NULL,           // default security
+                PAGE_READWRITE, // read/write permission
+                0,              // size of mapping object, high
+                dwFileMapSize,  // size of mapping object, low
+                NULL);  
+      if (hMapFile == NULL)
+      {
+            printf(("hMapFile is NULL: last error: %d\n"), GetLastError() );
+            return (2);
+      }
+      
+      lpMapAddress = MapViewOfFile(hMapFile,            // handle to
+                                                    // mapping object
+                               FILE_MAP_ALL_ACCESS, // read/write
+                               0,                   // high-order 32
+                                                    // bits of file
+                                                    // offset
+                               dwFileMapStart,      // low-order 32
+                                                    // bits of file
+                                                    // offset
+                               dwMapViewSize);      // number of bytes
+                                                    // to map
+      if (lpMapAddress == NULL)
+      {
+            printf(("lpMapAddress is NULL: last error: %d\n"), GetLastError());
+            return 3;
+      }
+
+      
+    char *addr = (char *) lpMapAddress;
+	for(int i = 0;i < maxTimes;i++) {
+		char *offsetPtr = addr + startOffsets[i];
+		int numModify = bytesToModify[i];
+		for(int j = 0;j < numModify;j++) {
+			offsetPtr[j]++; // read the byte and modify it.
+		}
+	}
+
+      //UNMAPPING
+
+      bFlag = UnmapViewOfFile(lpMapAddress);
+      bFlag = CloseHandle(hMapFile); // close the file mapping object
+
+      if(!bFlag)
+      {
+            printf(("\nError %ld occurred closing the mapping object!"),
+            GetLastError());
+      }
+
+      bFlag = CloseHandle(hFile);   // close the file itself
+
+      if(!bFlag)
+      {
+            printf(("\nError %ld occurred closing the file!"),
+            GetLastError());
+      }
+
+
+
+      QueryPerformanceCounter(&t2);
+      elapsedTime = elapsedTime + (t2.QuadPart - t1.QuadPart) * 1000.0 / frequency.QuadPart;
+      std::cout << "mmap Elapsed time - " << elapsedTime << "ms" << endl;
+      printf(("File modification complete\n"));
+
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
+
+	  return 0;
+}
+
+int
+simulateRandomIO_regularIO(const char *fileName, int *startOffsets, int *bytesToModify, int maxTimes, int maxBytesToModify) {
+
+      LARGE_INTEGER frequency;        // ticks per second
+      LARGE_INTEGER t1, t2;           // ticks
+      static double elapsedTime = 0;
+      static long long int timeCounter = 1;
+
+      QueryPerformanceFrequency(&frequency);
+      QueryPerformanceCounter(&t1);
+
+      //printf(("Modifying file using regular IO on windows platform \n"));
+
+      const TCHAR * lpcTheFile = fileName;
+
+      HANDLE hFile;        // file handle
+      
+      hFile = CreateFile(lpcTheFile,
+                     GENERIC_READ | GENERIC_WRITE,
+                     0,
+                     NULL,
+                     OPEN_EXISTING,
+                     FILE_ATTRIBUTE_NORMAL,
+                     NULL);
+      if (hFile == INVALID_HANDLE_VALUE)
+    {
+        printf(("hFile is NULL\n"));
+        printf(("Target file is %s\n"),
+             lpcTheFile);
+        return 4;
+    }
+      
+      DWORD dwFileSize = GetFileSize(hFile,  NULL);
+      //printf(("Number of bytes to read - %d\n"),dwFileSize);
+
+    char *buff = (char *) malloc(maxBytesToModify);
+    if (buff == NULL)
+    {
+        printf(("malloc failure %s\n"),
+             lpcTheFile);
+        return 4;
+    }
+
+	DWORD numBytesRead = 0;
+	for(int i = 0;i < maxTimes;i++) {
+		DWORD dwPtr = SetFilePointer(hFile, startOffsets[i], NULL, FILE_BEGIN);
+		int numModify = bytesToModify[i];
+		BOOL isRead = ReadFile(hFile, buff, numModify, &numBytesRead, NULL);
+		for(int j = 0;j < numModify;j++) {
+			buff[j]++; // modify it.
+		}
+		dwPtr = SetFilePointer(hFile, startOffsets[i], NULL, FILE_BEGIN);
+		WriteFile(hFile, buff, numModify, &numBytesRead, NULL);
+	}
+
+      //printf(("Number of bytes written %d\n"), numBytesRead);
+
+      
+
+      BOOL bFlag = CloseHandle(hFile);   // close the file itself
+
+      if(!bFlag)
+      {
+            printf(("\nError %ld occurred closing the file!"),
+            GetLastError());
+      }
+
+      QueryPerformanceCounter(&t2);
+      elapsedTime = elapsedTime + (t2.QuadPart - t1.QuadPart) * 1000.0 / frequency.QuadPart;
+      std::cout << "regular IO Elapsed time - " << elapsedTime << "ms" << endl;
+      printf(("File modification complete\n"));
+
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
+
+    return 0;
+}
+
+int
+myRand(int maxVal) {
+    return (int) (maxVal * ((double) rand())/(RAND_MAX + 1.0));
+}
 
 int main(int argc, char* argv[])
 {
+	const int maxTimesToModify = 100000;
+	const int maxOffset = 1024*1024; // it has to be file size
+	const int maxBytesToModify = 4*1024 + 1; // 8K, 2 times page size
+	int startOffsets[maxTimesToModify], bytesToModify[maxTimesToModify];
+	srand(time(NULL));
+	
+	for(int i = 0;i < maxTimesToModify;i++) {
+		startOffsets[i] = myRand(maxOffset);
+		bytesToModify[i] = myRand(maxBytesToModify);
+	}
 
       //writeColumnarData(("fmtest2.txt"), 3, 4000000); /*40000000*/
+		simulateRandomIO("fmtest2.txt", startOffsets, bytesToModify, maxTimesToModify);
+		simulateRandomIO_regularIO("fmtest2.txt", startOffsets, bytesToModify, maxTimesToModify, maxBytesToModify);
+
       //modifyColumnarData(("fmtest2.txt"));
       //modifyColumnarData_regulario(("fmtest2.txt"));
       //readColumnarData(("fmtest2.txt"), 10);
 
       //writeColumnarData_rowMajor(("fmtest2_rowMajor.txt"), 3, 40000000); /*40000000*/
-      modifyColumnarData_rowMajor(("fmtest2_rowMajor.txt"));
+      //modifyColumnarData_rowMajor(("fmtest2_rowMajor.txt"));
       //modifyColumnarData_regulario_rowMajor(("fmtest2_rowMajor.txt"));
-      readColumnarData_rowMajor(("fmtest2_rowMajor.txt"), 10);
+      //readColumnarData_rowMajor(("fmtest2_rowMajor.txt"), 10);
       
+	  cout << "hit any key and enter to continue" << endl;
       int sampleOutput;
       cin >> sampleOutput;
       return 0;

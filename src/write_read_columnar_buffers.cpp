@@ -338,7 +338,7 @@ main(int argc, char *argv[])
 {
 	const int maxTimesToModify = 1000000;
 	const int maxOffset = 1024*1024; // it has to be file size
-	const int maxBytesToModify = 16*1024; // 8K, 2 times page size
+	const int maxBytesToModify = 4*1024 + 1; // 8K, 2 times page size
 	int startOffsets[maxTimesToModify], bytesToModify[maxTimesToModify];
 	srand(time(NULL));
 	
