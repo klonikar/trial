@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
+#include <sys/times.h>
+
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
@@ -232,9 +235,98 @@ readColumnarData(const char *fileName, int maxNumRows) {
     close(fd);
 }
 
+void
+simulateRandomIO(const char *fileName, int *startOffsets, int *bytesToModify, int maxTimes) {
+    printf("Simulating Random IO using mmap\n");
+	struct tms st_cpu, en_cpu;
+	clock_t st_time = times(&st_cpu);
+	
+    int fd = open(fileName, O_RDWR);
+    if (fd == -1)
+        handle_error("open read");
+    struct stat sb;
+    if (fstat(fd, &sb) == -1)           /* To obtain file size */
+        handle_error("fstat read");
+
+    char *addr = (char *) mmap(NULL, sb.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if (addr == MAP_FAILED)
+        handle_error("mmap modify");
+
+	for(int i = 0;i < maxTimes;i++) {
+		char *offsetPtr = addr + startOffsets[i];
+		int numModify = bytesToModify[i];
+		for(int j = 0;j < numModify;j++) {
+			offsetPtr[j]++; // read the byte and modify it.
+		}
+	}
+	munmap(addr, sb.st_size);
+    close(fd);
+	clock_t en_time = times(&en_cpu);
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
+	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
+		  (en_time - st_time),
+		  (en_cpu.tms_utime - st_cpu.tms_utime),
+		  (en_cpu.tms_stime - st_cpu.tms_stime));
+}
+
+void
+simulateRandomIO_regularIO(const char *fileName, int *startOffsets, int *bytesToModify, int maxTimes, int maxBytesToModify) {
+    printf("Simulating Random IO using RegularIO\n");
+	struct tms st_cpu, en_cpu;
+	clock_t st_time = times(&st_cpu);
+
+    int fd = open(fileName, O_RDWR);
+    if (fd == -1)
+        handle_error("open read");
+    struct stat sb;
+    if (fstat(fd, &sb) == -1)           /* To obtain file size */
+        handle_error("fstat read");
+
+    char *buff = (char *) malloc(maxBytesToModify);
+    if (buff == NULL)
+        handle_error("malloc modify");
+
+	for(int i = 0;i < maxTimes;i++) {
+		lseek(fd, startOffsets[i], SEEK_SET);
+		int numModify = bytesToModify[i];
+		read(fd, buff, numModify);
+		for(int j = 0;j < numModify;j++) {
+			buff[j]++; // modify it.
+		}
+		lseek(fd, startOffsets[i], SEEK_SET);
+		write(fd, buff, numModify);
+	}
+    close(fd);
+	clock_t en_time = times(&en_cpu);
+	printf("modified %d times\nsample offsets: %d, %d, %d, %d\n", maxTimes, startOffsets[0], startOffsets[1], startOffsets[2], startOffsets[3]);
+	printf("sample bytes: %d, %d, %d, %d\n", bytesToModify[0], bytesToModify[1], bytesToModify[2], bytesToModify[3]);
+	printf("Real Time: %jd, User Time %jd, System Time %jd\n",
+		  (en_time - st_time),
+		  (en_cpu.tms_utime - st_cpu.tms_utime),
+		  (en_cpu.tms_stime - st_cpu.tms_stime));
+}
+
+int
+myRand(int maxVal) {
+    return (int) (maxVal * ((double) rand())/(RAND_MAX + 1.0));
+}
+
+// NOTE: Execute this program with a command line arg "-createColumnar" before other operations
 int
 main(int argc, char *argv[])
 {
+	const int maxTimesToModify = 1000000;
+	const int maxOffset = 1024*1024; // it has to be file size
+	const int maxBytesToModify = 16*1024; // 8K, 2 times page size
+	int startOffsets[maxTimesToModify], bytesToModify[maxTimesToModify];
+	srand(time(NULL));
+	
+	for(int i = 0;i < maxTimesToModify;i++) {
+		startOffsets[i] = myRand(maxOffset);
+		bytesToModify[i] = myRand(maxBytesToModify);
+	}
+	
     // create counters
     if(argc > 1 && strcmp(argv[1], "-counters") == 0) {
         writeCounters("counters.dat", 64*1024*1024);
@@ -242,14 +334,20 @@ main(int argc, char *argv[])
     }
     if(argc > 1 && strcmp(argv[1], "-createColumnar") == 0) {
         writeColumnarData("columnarData.dat", 4, 16777216); // 67108864 on linux to get a 2GB file
+		readColumnarData("columnarData.dat", 10);
     }
-    if(argc > 1 && strcmp(argv[1], "-regularIO") == 0) {
+    else if(argc > 1 && strcmp(argv[1], "-regularIO") == 0) {
         modifyColumnarData_io("columnarData.dat");
+		readColumnarData("columnarData.dat", 10);
     }
-    else {
+    else if(argc > 1 && strcmp(argv[1], "-mmapIO") == 0) {
         modifyColumnarData("columnarData.dat");
+		readColumnarData("columnarData.dat", 10);
     }
-    readColumnarData("columnarData.dat", 10);
+    else if(argc > 1 && strcmp(argv[1], "-simulateRandom") == 0) {
+		simulateRandomIO("columnarData.dat", startOffsets, bytesToModify, maxTimesToModify);
+		simulateRandomIO_regularIO("columnarData.dat", startOffsets, bytesToModify, maxTimesToModify, maxBytesToModify);
+	}
 
 #if 0
     char *addr;
