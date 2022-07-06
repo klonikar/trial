@@ -11,7 +11,7 @@ def compute_chi2(df, col1, col2, significance = 0.05):
   counts = np.zeros((len(col1Data), len(col2Data)), dtype=np.int32)
   _ = countsdf.apply(lambda r: counts_assign(counts, col1Data.index(r[col1]), col2Data.index(r[col2]), r['counts']), axis=1)
   chi2_input_df = pd.DataFrame(counts, index=col1Data, columns=col2Data)
-  chi, pval, dof, exp = chi2_contigency(chi2_input_df)
+  chi, pval, dof, exp = chi2_contingency(chi2_input_df)
   p = 1 - significance
   critical_value = chi2.ppf(p, dof)
   return chi, pval, dof, exp, critical_value, chi2_input_df
