@@ -1,4 +1,4 @@
-from scipy.stats import chi2_contigency, chi2
+from scipy.stats import chi2_contingency, chi2
 import pandas as pd
 import numpy as np
 
