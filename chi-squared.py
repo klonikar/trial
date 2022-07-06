@@ -2,18 +2,19 @@ from scipy.stats import chi2_contigency, chi2
 import pandas pd
 import numpy as np
 
-tshirtdata = pd.read_csv('gender-color.csv', sep=',')
-tshirtscountsdf = tshirtdata.groupby(by=['gender', 'color']).size().reset_index(name='counts')
-genders = list(tshirtscountsdf['gender'].unique())
-colors = list(tshirtscountsdf['color'].unique())
-tshirt_counts = np.zeros((len(genders), len(colors)), dtype=np.int32)
+def compute_chi2(df, col1, col2, significance = 0.05):
+  def counts_assign(m, i,  j, v):
+    m[i, j] = v
+  countsdf = df.groupby(by=[col1, col2]).size().reset_index(name='counts')
+  col1Data = list(countsdf[col1].unique())
+  col2Data = list(countsdf[col2].unique())
+  counts = np.zeros((len(col1Data), len(col2Data)), dtype=np.int32)
+  _ = countsdf.apply(lambda r: counts_assign(counts, col1Data.index(r[col1]), col2Data.index(r[col2]), r['counts']), axis=1)
+  chi2_input_df = pd.DataFrame(counts, index=col1Data, columns=col2Data)
+  chi, pval, dof, exp = chi2_contigency(chi2_input_df)
+  p = 1 - significance
+  critical_value = chi2.ppf(p, dof)
+  return chi, pval, dof, exp, critical_value, chi2_input_df
 
-def counts_assign(m, i,  j, v):
-  m[i, j] = v
-
-_ = tshirtscountsdf.apply(lambda r: counts_assign(tshirt_counts, genders.index(r['gender']), colors.index(r['color']), r['counts']), axis=1)
-tshirts_df = pd.DataFrame(tshirt_counts, index=genders, columns=colors)
-chi, pval, dof, exp = chi2_contigency(tshirts_df)
-significance = 0.05
-p = 1 - significance
-critical_value = chi2.ppf(p, dof)
+tshirtsdata = pd.read_csv('gender-color.csv', sep=',')
+chi, pval, dof, exp, critical_value, chi2_input_df = compute_chi2(tshirtsdata, 'gender', 'color')
