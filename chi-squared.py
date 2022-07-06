@@ -1,5 +1,5 @@
 from scipy.stats import chi2_contigency, chi2
-import pandas pd
+import pandas as pd
 import numpy as np
 
 def compute_chi2(df, col1, col2, significance = 0.05):
